@@ -102,19 +102,11 @@ Each state of a padding machine specifies either:
   * A histogram describing inter-arrival cell delays; OR
   * A parameterized delay probability distribution for inter-arrival cell delays
 
-In either case, the lower bound of the delay probability distribution can be
-specified as the start_usec parameter, and/or it can be learned by measuring
-the RTT of the circuit at the middle node. For client-side machines, RTT
-measurement is always set to 0. RTT measurement at the middle node is
-calculated by measuring the difference between the time of arrival of an
-received cell (ie: away from origin) and the time of arrival of a sent cell
-(ie: towards origin). The RTT is continually updated so long as two cells do
-not arrive back-to-back in either direction. If the most recent measured RTT
-value is larger than our measured value so far, this larger value is used. If
-the most recent measured RTT value is lower than our measured value so far, it
-is averaged with our current measured value. (We favor longer RTTs slightly in
-this way, because circuits are growing away from the middle node and becoming
-longer).
+The lowest delay possible in a histogram is specified as the lower bound of bin
+#0, whereas in the case of delay probability distributions it can be specified
+as the dist_min_usec parameter. Furthermore, the lowest delay can also be
+learned by measuring the RTT of the circuit at the middle node (see "RTT
+estimation" section).
 
 If the histogram is used, it has an additional special "infinity" bin that
 means "infinite delay".
@@ -215,11 +207,11 @@ When all bins exept the infinity bin are empty in a histogram, the padding
 machine emits the internal "bins empty" event to itself.
 
 Bin 0 and the bin before the infinity bin both have special rules for purposes
-of token removal. While removing tokens, all values less than bin 0 are
-treated as part of bin 0, and all values greater than
-start_usec+rtt_estimate+range_sec are treated as part of the bin before the
-infinity bin. Tokens are not removed from the infinity bin when non-padding is
-sent. (They are only removed when an "infinite" delay is chosen).
+of token removal. While removing tokens, all values less than bin 0 are treated
+as part of bin 0, and all values greater than the highest non-infinity bin are
+treated as part of highest non-infinity bin. Tokens are not removed from the
+infinity bin when non-padding is sent. (They are only removed when an
+"infinite" delay is chosen).
 
 3.1.2. Delay Probability Distribution
 
@@ -229,11 +221,23 @@ histogram, to sample padding delays.
 In this case, the designer also needs to specify the appropriate distribution
 parameters, and when a padding cell needs to be scheduled, the padding
 subsystem will sample a positive delay value (in microseconds) from that
-distribution (where the minimum delay is range_usec+start_usec as is the case
-for histograms).
+distribution (where the minimum delay is dist_min_usec).
 
 We currently support the following probability distributions:
    Uniform, Logistic, Log-logistic, Geometric, Weibull, Pareto
+
+3.1.3. RTT estimation
+
+For client-side machines, RTT measurement is always set to 0. RTT measurement
+at the middle node is calculated by measuring the difference between the time
+of arrival of an received cell (ie: away from origin) and the time of arrival
+of a sent cell (ie: towards origin). The RTT is continually updated so long as
+two cells do not arrive back-to-back in either direction. If the most recent
+measured RTT value is larger than our measured value so far, this larger value
+is used. If the most recent measured RTT value is lower than our measured value
+so far, it is averaged with our current measured value. (We favor longer RTTs
+slightly in this way, because circuits are growing away from the middle node
+and becoming longer).
 
 3.2. State Machine Selection
 
