@@ -142,7 +142,7 @@ new padding delay is chosen.
 
 If a histogram is used by a state (as opposed to a fixed parameterized
 distribution), then the histogram can have an arbitrary amount of 'bins', and
-each bin represents a different type of delay for sending padding. Each bin
+each bin represents a different amount of delay for sending padding. Each bin
 contains a certain amount of 'tokens' which represent how likely the bin is to
 be chosen (also see "Histogram Token Removal" section below).
 
@@ -151,34 +151,45 @@ delay) and an arbitrary (non-negative) amount of tokens specified by the
 machine creator. Histograms MUST have a final bin ("infinity bin") which
 represents infinite delay.
 
-In particular, to sample the delay time to send a padding packet, perform the
-following:
-  * Select a histogram bin weighted by the number of tokens in its index
-    compared to the total.
-  * If the "infinity bin" is selected, do not schedule padding.
-  * For other bins, uniformly sample a time value between this bin and
-    the next bin, and schedule padding then.
+These two properties of the histrogram are specified in two arrays with an
+index for each bin. One array specifies the token counts for the bin, and the
+other array specifies the left bin endpoints, in microseconds.
 
-Finally, here is a visualization of a histogram with 6 bins:
+Finally, here is a visualization of a histogram with example arrays:
+
+tokens = { 6,  10,   6,   7,   9,    6 }
+usecs =  { 0, 100, 200, 350, 500, 1000 }
 
   Tokens    +
-            |    +----+
-            |    |    |           +---------+
-            |    |    |           |         |
-            |    |    |     +-----+         |
-            +----+ Bin+-----+     |         +---------------+
-            |    | #1 |     |     |         |               |
+         10 |    +----+
+          9 |    |    |           +---------+
+          8 |    |    |           |         |
+          7 |    |    |     +-----+         |
+          6 +----+ Bin+-----+     |         +---------------+
+          5 |    | #1 |     |     |         |               |
             | Bin|    | Bin | Bin |  Bin #4 |    Bin #5     |
             | #0 |    | #2  | #3  |         | (infinity bin)|
             |    |    |     |     |         |               |
             |    |    |     |     |         |               |
-            +----+----+-----+-----+---------+---------------+
+          0 +----+----+-----+-----+---------+---------------+
             0   100  200   350   500      1000              ∞     microseconds
 
 In the diagram above, the x axis represents the microseconds delay of each bin
-(e.g. if bin#4 is chosen then the next padding cell will have a uniformly random
-delay between 500 and 1000 ms). The y axis represents the amount of tokens
-contained in each bin (e.g bin#1 has the most tokens).
+(e.g. if bin#4 is chosen then the next padding cell will have a delay chosen
+uniformly between 500 and 999 ms). The y axis represents the amount of tokens
+contained in each bin (e.g bin#1 has the most tokens). If the last bin (bin
+#5 aka the "infinity bin") is chosen, padding is not scheduled.
+
+To sample the delay time to send a padding packet, the implementation performs
+the following:
+  * Select a histogram bin weighted by the number of tokens in its index
+	compared to the total.
+  * If the "infinity bin" is selected, do not schedule padding.  For other
+  * bins, uniformly sample a time value between this bin and
+	the next bin, and schedule padding then.
+
+Note that this sampling mechanism means that per token, narrow bins have
+greater probability density per microsecond than wider bins.
 
 3.1.1.1. Histogram Token Removal
 
